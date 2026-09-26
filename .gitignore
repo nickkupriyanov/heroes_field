@@ -1,0 +1,17 @@
+# Бинарные артефакты сборки
+/afterhero
+/headless
+/afterhero.exe
+/headless.exe
+
+# Кэш тестов и профилирования Go
+*.test
+*.out
+coverage.*
+
+# Локальные артефакты
+*.log
+.DS_Store
+
+# Файлы окружения
+.env
