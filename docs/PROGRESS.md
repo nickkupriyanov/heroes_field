@@ -69,3 +69,23 @@
 `NewWorld` в M1.4, так genesis-событие остаётся полным описанием партии.
 
 Проверка: `go test ./...` и `go vet ./...` — зелёные.
+
+### M1.4 — существа, предметы, genesis
+
+- `internal/sim/creature.go` — `Creature` (HP, инвентарь, память-кольцо
+  на 32 события с `remember`), характеристики видов через switch-таблицы
+  `KindMaxHP`/`KindDamage` (гоблин 6/2, крыса 4/1, культис 5/2).
+- `internal/sim/item.go` — `Item` с инвариантом места (Holder=0 → на земле
+  в Pos, иначе в инвентаре), трупы — предметы с Owner.
+- `internal/sim/world.go` — `World` (map только для поиска, стабильный
+  `order` для очереди NPC), `Genesis`-payload; `NewWorld` строит мир
+  **через применение собственного genesis-события** — начало партии
+  и replay не могут разойтись по построению; `emit` — единственная дверь
+  к изменению мира.
+- `internal/sim/apply.go` — reducer `applyEvent` (пока только WorldCreated)
+  + `applyGenesis`; счётчик событий восстанавливается из потока.
+- `internal/sim/world_test.go` — содержимое genesis (12 существ, 8 предметов,
+  ID в порядке чтения карты, игрок-гоблин #1), соответствие мира событию,
+  JSON round-trip.
+
+Проверка: `go test ./...` и `go vet ./...` — зелёные.

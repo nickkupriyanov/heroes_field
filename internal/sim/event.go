@@ -18,18 +18,19 @@ package sim
 // ClaimCloseReason или EndCause. Все они uint8 со стабильными значениями,
 // а плоское поле не разрастает формат.
 type Event struct {
-	SchemaVersion int        `json:"v"`                // версия схемы потока
-	Seq           Seq        `json:"seq"`              // сквозной номер события
-	Turn          int        `json:"turn"`             // номер хода свершения
-	Kind          EventKind  `json:"kind"`             // вид факта
-	Actor         EntityID   `json:"actor,omitempty"`  // кто совершил
-	Target        EntityID   `json:"target,omitempty"` // над кем/чем совершено
-	Item          ItemID     `json:"item,omitempty"`   // предмет-участник
-	Pos           *Vec2      `json:"pos,omitempty"`    // место свершения
-	Dir           *Vec2      `json:"dir,omitempty"`    // направление (шаг, удар)
-	Amount        int        `json:"amount,omitempty"` // число (урон, метка)
-	Cause         uint8      `json:"cause,omitempty"`  // причина (по виду факта)
-	Witnesses     []EntityID `json:"wit,omitempty"`    // кто видел, отсортировано
+	SchemaVersion int        `json:"v"`                 // версия схемы потока
+	Seq           Seq        `json:"seq"`               // сквозной номер события
+	Turn          int        `json:"turn"`              // номер хода свершения
+	Kind          EventKind  `json:"kind"`              // вид факта
+	Actor         EntityID   `json:"actor,omitempty"`   // кто совершил
+	Target        EntityID   `json:"target,omitempty"`  // над кем/чем совершено
+	Item          ItemID     `json:"item,omitempty"`    // предмет-участник
+	Pos           *Vec2      `json:"pos,omitempty"`     // место свершения
+	Dir           *Vec2      `json:"dir,omitempty"`     // направление (шаг, удар)
+	Amount        int        `json:"amount,omitempty"`  // число (урон, метка)
+	Cause         uint8      `json:"cause,omitempty"`   // причина (по виду факта)
+	Witnesses     []EntityID `json:"wit,omitempty"`     // кто видел, отсортировано
+	Genesis       *Genesis   `json:"genesis,omitempty"` // payload события WorldCreated
 }
 
 // Memorable сообщает, попадает ли факт вида k в память существ.

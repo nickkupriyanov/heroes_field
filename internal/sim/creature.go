@@ -1,0 +1,62 @@
+package sim
+
+// Creature — текущее состояние существа в мире.
+//
+// Существо — единственный «персонаж» мира: его здоровье, инвентарь и память
+// переживают смерть игрока (в отличие от самого игрока). Память — кольцевой
+// буфер ID памятных событий: обиды входят, стареют и вытесняются новыми,
+// поэтому у мира нет отдельного хранилища «отношений» — они вычисляются
+// из памяти по мере надобности (M4).
+type Creature struct {
+	ID        EntityID
+	Kind      CreatureKind
+	Pos       Vec2
+	HP        int
+	MaxHP     int
+	Inventory []ItemID
+	Alive     bool
+	Memory    []Seq // ID памятных событий, последние в конце, не более memoryCap
+}
+
+// memoryCap — вместимость кольца памяти. Смерти и обиды вытесняются новыми
+// впечатлениями: мир, где помнят всё, не умеет прощать и не умеет забывать
+// — обе способности нужны историям.
+const memoryCap = 32
+
+// remember добавляет событие в память, вытесняя самое старое при переполнении.
+// Вызывается только из apply: память — проекция потока событий, а не
+// самостоятельное состояние, которое можно менять напрямую.
+func (c *Creature) remember(seq Seq) {
+	c.Memory = append(c.Memory, seq)
+	if len(c.Memory) > memoryCap {
+		c.Memory = c.Memory[len(c.Memory)-memoryCap:]
+	}
+}
+
+// KindMaxHP возвращает здоровье вида при рождении. Таблица — switch,
+// а не map: значения читаются только по ключу, но switch гарантирует
+// одно поведение без скрытых сюрпризов итерации и не требует
+// инициализации при загрузке пакета.
+func KindMaxHP(k CreatureKind) int {
+	switch k {
+	case CreatureGoblin:
+		return 6
+	case CreatureRat:
+		return 4
+	default:
+		return 5
+	}
+}
+
+// KindDamage возвращает урон вида в ближнем бою без оружия.
+// Крысы слабы поодиночке — но их четверо, и они помнят, кто топтал тоннели.
+func KindDamage(k CreatureKind) int {
+	switch k {
+	case CreatureGoblin:
+		return 2
+	case CreatureRat:
+		return 1
+	default:
+		return 2
+	}
+}
