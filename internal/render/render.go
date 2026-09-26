@@ -4,10 +4,15 @@
 package render
 
 import (
+	"fmt"
 	"image"
 	"image/color"
 
 	"github.com/hajimehoshi/ebiten/v2"
+	"github.com/hajimehoshi/ebiten/v2/text"
+	"golang.org/x/image/font"
+	"golang.org/x/image/font/gofont/goregular"
+	"golang.org/x/image/font/opentype"
 
 	"afterhero/internal/sim"
 )
@@ -44,7 +49,26 @@ var (
 		sim.ItemWeapon: {R: 126, G: 200, B: 227, A: 255},
 		sim.ItemCorpse: {R: 138, G: 47, B: 54, A: 255},
 	}
+
+	// Палитра сайдбара: тихие тона — карта рассказывает историю,
+	// панель не должна её перебивать.
+	colText  = color.RGBA{R: 190, G: 188, B: 196, A: 255}
+	colTitle = color.RGBA{R: 235, G: 235, B: 235, A: 255}
+	colHP    = color.RGBA{R: 126, G: 200, B: 128, A: 255}
+	colErr   = color.RGBA{R: 226, G: 92, B: 92, A: 255}
+	colDimTx = color.RGBA{R: 120, G: 118, B: 128, A: 255}
 )
+
+// Sidebar — содержимое правой панели: состояние тела, последние события
+// и сообщение об ошибке. Рендер не строит этот текст сам — ему приносят.
+type Sidebar struct {
+	Turn   int
+	Body   string
+	HP     int
+	MaxHP  int
+	Events []string // свежие сверху
+	Error  string
+}
 
 // Renderer рисует состояние мира из снапшотов.
 //
@@ -62,10 +86,25 @@ type Renderer struct {
 	snap     sim.Snapshot
 	explored []bool
 	visible  map[sim.Vec2]bool
+	face     font.Face
+	sidebar  *Sidebar
 }
 
-// New создаёт рендер для мира: фиксирует терраин и геометрию.
-func New(w *sim.World) *Renderer {
+// New создаёт рендер для мира: фиксирует терраин, геометрию и шрифт.
+// Шрифт — Go Regular с полной кириллицей: он встроен в бинарник через
+// gofont, игра не зависит от системных шрифтов.
+func New(w *sim.World) (*Renderer, error) {
+	src, err := opentype.Parse(goregular.TTF)
+	if err != nil {
+		return nil, fmt.Errorf("шрифт Go Regular: %w", err)
+	}
+	face, err := opentype.NewFace(src, &opentype.FaceOptions{
+		Size: 14,
+		DPI:  72,
+	})
+	if err != nil {
+		return nil, fmt.Errorf("отрисовка шрифта: %w", err)
+	}
 	width, height := w.Width(), w.Height()
 	return &Renderer{
 		terrain:  w.Terrain(),
@@ -73,7 +112,8 @@ func New(w *sim.World) *Renderer {
 		height:   height,
 		explored: make([]bool, width*height),
 		visible:  map[sim.Vec2]bool{},
-	}
+		face:     face,
+	}, nil
 }
 
 // SetSnapshot обновляет отрисовываемое состояние.
@@ -92,6 +132,9 @@ func (r *Renderer) SetVisible(cells []sim.Vec2) {
 	}
 }
 
+// SetSidebar обновляет содержимое правой панели.
+func (r *Renderer) SetSidebar(sb Sidebar) { r.sidebar = &sb }
+
 // Draw отрисовывает кадр: сайдбар, терраин в тумане, предметы на полу,
 // существ. Порядок слоёв важен: предмет и существо могут делить клетку,
 // и живое всегда рисуется поверх того, что лежит под ним.
@@ -101,6 +144,7 @@ func (r *Renderer) SetVisible(cells []sim.Vec2) {
 // остаётся видимым навсегда, лишь темнея вне взгляда.
 func (r *Renderer) Draw(screen *ebiten.Image) {
 	screen.SubImage(image.Rect(mapAreaW, 0, mapAreaW+sidebarW, windowH)).(*ebiten.Image).Fill(colSidebar)
+	r.drawSidebar(screen)
 	for y := 0; y < r.height; y++ {
 		for x := 0; x < r.width; x++ {
 			pos := sim.Vec2{X: x, Y: y}
@@ -137,6 +181,39 @@ func (r *Renderer) Draw(screen *ebiten.Image) {
 			r.drawHighlight(screen, c.Pos.X, c.Pos.Y)
 		}
 	}
+}
+
+// drawSidebar рисует правую панель: ход, тело, здоровье, свежие события
+// и подсказку управления. Ошибка последнего шага — красным: игрок обязан
+// понимать, почему ход не состоялся.
+func (r *Renderer) drawSidebar(screen *ebiten.Image) {
+	if r.sidebar == nil {
+		return
+	}
+	x := mapAreaW + 14
+	y := 28
+	r.text(screen, x, y, fmt.Sprintf("ХОД %d", r.sidebar.Turn), colTitle)
+	y += 26
+	r.text(screen, x, y, "Ты — "+r.sidebar.Body, colText)
+	y += 20
+	r.text(screen, x, y, fmt.Sprintf("Здоровье: %d/%d", r.sidebar.HP, r.sidebar.MaxHP), colHP)
+	y += 28
+	r.text(screen, x, y, "— события —", colDimTx)
+	y += 22
+	for _, line := range r.sidebar.Events {
+		text.Draw(screen, line, r.face, x, y, colText)
+		y += 18
+	}
+	if r.sidebar.Error != "" {
+		y += 6
+		text.Draw(screen, r.sidebar.Error, r.face, x, y, colErr)
+	}
+	r.text(screen, x, windowH-20, "стрелки/vi — шаг · . — ждать", colDimTx)
+}
+
+// text рисует однострочную надпись.
+func (r *Renderer) text(screen *ebiten.Image, x, y int, s string, col color.Color) {
+	text.Draw(screen, s, r.face, x, y, col)
 }
 
 // drawTile заливает клетку тайла цветом.
