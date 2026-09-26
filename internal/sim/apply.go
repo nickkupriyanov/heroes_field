@@ -19,6 +19,16 @@ func (w *World) applyEvent(e Event) {
 	switch e.Kind {
 	case EventWorldCreated:
 		w.applyGenesis(e.Genesis)
+	case EventMoved:
+		// Позиция — доверие событию: emitter уже проверил занятость.
+		w.creatures[e.Actor].Pos = *e.Pos
+	case EventWaited:
+		// Факт «время потрачено»: состояние не меняет, но журналу нужен.
+	case EventTurnEnded:
+		// Номер хода восстанавливается из потока: TurnEnded несёт номер
+		// завершившегося хода. Для живого мира это подтверждение,
+		// для replay — единственный источник счётчика.
+		w.turn = e.Turn
 	default:
 		// Неизвестный вид события — это баг формата, а не штатная ситуация.
 		// Тихий пропуск молча бы рассинхронизировал миры.
