@@ -151,3 +151,10 @@ func (w *World) CellAt(x, y int) CellKind {
 // Width и Height — размеры карты в клетках.
 func (w *World) Width() int  { return w.width }
 func (w *World) Height() int { return w.height }
+
+// Terrain возвращает клетки карты в row-major порядке. Срез неизменен
+// в течение партии и передаётся без копии: рендер берёт его один раз
+// и не мутирует — копия 640 клеток каждый кадр не стоит нарушенного
+// договора. Когда появится разрушаемый терраин, accessor станет копией
+// или исчезнет в пользу снапшотов.
+func (w *World) Terrain() []CellKind { return w.cells }

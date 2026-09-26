@@ -11,6 +11,7 @@ import (
 
 	"github.com/hajimehoshi/ebiten/v2"
 
+	"afterhero/internal/render"
 	"afterhero/internal/sim"
 )
 
@@ -23,6 +24,7 @@ const (
 // Game реализует ebiten.Game: держит мир и рендер, связывает ввод с ходами.
 type Game struct {
 	world *sim.World
+	view  *render.Renderer
 }
 
 // Update вызывается каждый кадр. Пошаговая логика срабатывает по нажатию
@@ -31,9 +33,11 @@ func (g *Game) Update() error {
 	return nil
 }
 
-// Draw отрисовывает кадр: тёмный фон под будущие панели.
+// Draw отрисовывает кадр: снапшот мира через рендер.
 func (g *Game) Draw(screen *ebiten.Image) {
 	screen.Fill(color.RGBA{R: 16, G: 14, B: 18, A: 255})
+	g.view.SetSnapshot(g.world.Snapshot())
+	g.view.Draw(screen)
 }
 
 // Layout фиксирует логическое разрешение: пиксельная графика масштабируется
@@ -50,7 +54,7 @@ func main() {
 	world, _ := sim.NewWorld(scenario, 1)
 	ebiten.SetWindowSize(windowWidth, windowHeight)
 	ebiten.SetWindowTitle(title)
-	if err := ebiten.RunGame(&Game{world: world}); err != nil {
+	if err := ebiten.RunGame(&Game{world: world, view: render.New(world)}); err != nil {
 		log.Fatal(err)
 	}
 }
