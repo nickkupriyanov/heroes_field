@@ -28,8 +28,13 @@ type Game struct {
 }
 
 // Update вызывается каждый кадр. Пошаговая логика срабатывает по нажатию
-// клавиш (ввод появится в M2.4); пока мир просто живёт в памяти.
+// клавиш (ввод появится в M2.4); FOV тела пересчитывается здесь же —
+// это дёшево и держит туман в согласии с последним снапшотом.
 func (g *Game) Update() error {
+	body := g.world.Creature(g.world.Player())
+	if body != nil && body.Alive {
+		g.view.SetVisible(g.world.VisibleCells(body.Pos, sim.KindSight(body.Kind)))
+	}
 	return nil
 }
 

@@ -88,7 +88,12 @@ func (w *World) act(id EntityID, a Action) ([]Event, error) {
 	switch a.Kind {
 	case ActionWait:
 		pos := c.Pos
-		return []Event{w.emit(Event{Kind: EventWaited, Actor: id, Pos: &pos})}, nil
+		return []Event{w.emit(Event{
+			Kind:      EventWaited,
+			Actor:     id,
+			Pos:       &pos,
+			Witnesses: w.witnesses(pos),
+		})}, nil
 	case ActionMove:
 		to := c.Pos.Add(a.Dir)
 		if w.CellAt(to.X, to.Y) != CellFloor {
@@ -98,7 +103,13 @@ func (w *World) act(id EntityID, a Action) ([]Event, error) {
 			return nil, fmt.Errorf("%w: клетка %v занята", ErrInvalidAction, to)
 		}
 		dir := a.Dir
-		return []Event{w.emit(Event{Kind: EventMoved, Actor: id, Pos: &to, Dir: &dir})}, nil
+		return []Event{w.emit(Event{
+			Kind:      EventMoved,
+			Actor:     id,
+			Pos:       &to,
+			Dir:       &dir,
+			Witnesses: w.witnesses(to),
+		})}, nil
 	default:
 		// Атака и предметы приходят в M3; для них sintaxис уже валиден,
 		// но мир ещё не умеет их применять.
