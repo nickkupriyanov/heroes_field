@@ -62,7 +62,7 @@ func (w *World) Snapshot() Snapshot {
 			HP:        c.HP,
 			MaxHP:     c.MaxHP,
 			Alive:     c.Alive,
-			Inventory: append([]ItemID(nil), c.Inventory...),
+			Inventory: w.InventoryOf(c.ID), // выводится из Item.Holder на месте
 			Memory:    append([]Seq(nil), c.Memory...),
 		}
 		s.Creatures = append(s.Creatures, cs)

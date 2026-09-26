@@ -158,3 +158,29 @@ func (w *World) Height() int { return w.height }
 // договора. Когда появится разрушаемый терраин, accessor станет копией
 // или исчезнет в пользу снапшотов.
 func (w *World) Terrain() []CellKind { return w.cells }
+
+// InventoryOf выводит инвентарь существа из Item.Holder — единственного
+// источника правды о том, что у кого. Порядок — по возрастанию ID
+// предметов: вывод детерминирован, а «что подобрано раньше» историям
+// этого MVP пока не рассказывает.
+func (w *World) InventoryOf(id EntityID) []ItemID {
+	var inv []ItemID
+	for _, itemID := range w.itemOrder {
+		if it := w.items[itemID]; it != nil && it.Holder == id {
+			inv = append(inv, itemID)
+		}
+	}
+	return inv
+}
+
+// HoldingWeapon сообщает, есть ли у существа оружие: урон в ближнем бою
+// растёт от любого оружия в руках (одна рука, один удар — а гоблин
+// не умеет жонглировать).
+func (w *World) HoldingWeapon(id EntityID) bool {
+	for _, itemID := range w.InventoryOf(id) {
+		if w.items[itemID].Kind == ItemWeapon {
+			return true
+		}
+	}
+	return false
+}

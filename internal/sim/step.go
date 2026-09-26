@@ -110,6 +110,34 @@ func (w *World) act(id EntityID, a Action) ([]Event, error) {
 			Dir:       &dir,
 			Witnesses: w.witnesses(to),
 		})}, nil
+	case ActionPickUp:
+		it := w.items[a.Item]
+		if it == nil || it.Holder != 0 || it.Pos != c.Pos {
+			// Предмет должен лежать именно под ногами: «поднять то, что
+			// видно в двух клетках» — это не поднятие, а воровство на расстоянии.
+			return nil, fmt.Errorf("%w: предмет %d не под рукой", ErrInvalidAction, a.Item)
+		}
+		pos := it.Pos
+		return []Event{w.emit(Event{
+			Kind:      EventItemPickedUp,
+			Actor:     id,
+			Item:      a.Item,
+			Pos:       &pos,
+			Witnesses: w.witnesses(pos),
+		})}, nil
+	case ActionDrop:
+		it := w.items[a.Item]
+		if it == nil || it.Holder != id {
+			return nil, fmt.Errorf("%w: предмет %d не у тебя", ErrInvalidAction, a.Item)
+		}
+		pos := c.Pos
+		return []Event{w.emit(Event{
+			Kind:      EventItemDropped,
+			Actor:     id,
+			Item:      a.Item,
+			Pos:       &pos,
+			Witnesses: w.witnesses(pos),
+		})}, nil
 	default:
 		// Атака и предметы приходят в M3; для них sintaxис уже валиден,
 		// но мир ещё не умеет их применять.

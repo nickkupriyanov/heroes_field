@@ -29,6 +29,18 @@ func (w *World) applyEvent(e Event) {
 		// завершившегося хода. Для живого мира это подтверждение,
 		// для replay — единственный источник счётчика.
 		w.turn = e.Turn
+	case EventItemPickedUp:
+		// Инвентарь — вывод из Holder: меняется только место предмета.
+		if it := w.items[e.Item]; it != nil {
+			it.Holder = e.Actor
+			it.Pos = Vec2{}
+		}
+	case EventItemDropped:
+		// Предмет покинул руки (или выпал из мёртвых) и лёг в клетку события.
+		if it := w.items[e.Item]; it != nil {
+			it.Holder = 0
+			it.Pos = *e.Pos
+		}
 	default:
 		// Неизвестный вид события — это баг формата, а не штатная ситуация.
 		// Тихий пропуск молча бы рассинхронизировал миры.
