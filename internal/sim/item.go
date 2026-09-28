@@ -12,9 +12,10 @@ package sim
 // кто именно ел. Поэтому Item хранит Owner — ID погибшего: без него
 // воспоминание «он ел Гриблика» потеряло бы имя жертвы.
 type Item struct {
-	ID     ItemID
-	Kind   ItemKind
-	Holder EntityID // 0 — на земле, иначе в инвентаре
-	Pos    Vec2     // валидно, только когда предмет на земле
-	Owner  EntityID // для трупа: кто погиб
+	ID       ItemID
+	Kind     ItemKind
+	Holder   EntityID // 0 — на земле, иначе в инвентаре
+	Pos      Vec2     // валидно, только когда предмет на земле
+	Owner    EntityID // для трупа: кто погиб
+	Consumed bool     // съеден: в мире для памяти и журнала, не для карты
 }

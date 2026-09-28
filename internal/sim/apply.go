@@ -68,6 +68,18 @@ func (w *World) applyEvent(e Event) {
 		if e.Item >= w.nextItem {
 			w.nextItem = e.Item + 1 // счётчик предметов восстанавливается из потока
 		}
+	case EventItemUsed:
+		// Съеденное остаётся в реестре как consumed: память и журнал
+		// продолжают звать его по имени («он съел труп гоблина #4»),
+		// а карта больше его не рисует и инвентарь не держит.
+		if it := w.items[e.Item]; it != nil {
+			it.Consumed = true
+			it.Holder = 0
+			it.Pos = *e.Pos
+		}
+		if c := w.creatures[e.Actor]; c != nil {
+			c.LastFedTurn = e.Turn // голод — производная от этого поля
+		}
 	default:
 		// Неизвестный вид события — это баг формата, а не штатная ситуация.
 		// Тихий пропуск молча бы рассинхронизировал миры.

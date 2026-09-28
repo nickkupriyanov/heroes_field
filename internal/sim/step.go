@@ -65,7 +65,32 @@ func (w *World) Step(playerAction Action) ([]Event, error) {
 		// Utility-AI подключается в M4; до того мирные жители не действуют.
 	}
 
-	// Фаза 3: upkeep (голод и истощение — M3.3).
+	// Фаза 3: upkeep — голод растёт как производная (ход − последняя еда),
+	// а истощение списывает здоровье. Порядок — по возрастанию ID:
+	// умирание посреди upkeep не меняет порядок остальных.
+	upkeepOrder := append([]EntityID(nil), w.order...)
+	for _, id := range upkeepOrder {
+		c := w.creatures[id]
+		if c == nil || !c.Alive {
+			continue
+		}
+		if w.turn-c.LastFedTurn > HungerGrace {
+			pos := c.Pos
+			events = append(events, w.emit(Event{
+				Kind:      EventDamaged,
+				Target:    id,
+				Amount:    1,
+				Cause:     uint8(DamageHunger),
+				Pos:       &pos,
+				Witnesses: w.witnesses(pos),
+			}))
+			// emit применяет сразу: здоровье уже списано.
+			if c.HP <= 0 {
+				events = append(events, w.kill(id, 0, DeathHunger)...)
+			}
+		}
+	}
+
 	// Фаза 4: закрытие целей мести (M5).
 	// Фаза 5: победа/вымирание/смена тела (M3.4, M5).
 
@@ -175,9 +200,26 @@ func (w *World) act(id EntityID, a Action) ([]Event, error) {
 			events = append(events, w.kill(victimID, id, DeathCombat)...)
 		}
 		return events, nil
+	case ActionUse:
+		it := w.items[a.Item]
+		if it == nil || it.Holder != id {
+			return nil, fmt.Errorf("%w: предмет %d не у тебя", ErrInvalidAction, a.Item)
+		}
+		if it.Kind != ItemFood && it.Kind != ItemCorpse {
+			// Оружие не едят: его поднимают для другого.
+			return nil, fmt.Errorf("%w: это не еда", ErrInvalidAction)
+		}
+		pos := c.Pos
+		return []Event{w.emit(Event{
+			Kind:      EventItemUsed,
+			Actor:     id,
+			Item:      a.Item,
+			Pos:       &pos,
+			Witnesses: w.witnesses(pos),
+		})}, nil
 	default:
-		// Атака и предметы приходят в M3; для них sintaxис уже валиден,
-		// но мир ещё не умеет их применять.
+		// Все шесть действий мира поддержаны; сюда попадают только
+		// несуществующие значения вида — защита от искажённых намерений.
 		return nil, fmt.Errorf("%w: действие %d ещё не поддержано", ErrInvalidAction, a.Kind)
 	}
 }

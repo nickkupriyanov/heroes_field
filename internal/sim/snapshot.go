@@ -29,6 +29,7 @@ type CreatureSnapshot struct {
 	Pos       Vec2         `json:"pos"`
 	HP        int          `json:"hp"`
 	MaxHP     int          `json:"maxhp"`
+	Hunger    int          `json:"hunger"` // выводится из хода последней еды
 	Alive     bool         `json:"alive"`
 	Inventory []ItemID     `json:"inv,omitempty"`
 	Memory    []Seq        `json:"mem,omitempty"`
@@ -36,11 +37,12 @@ type CreatureSnapshot struct {
 
 // ItemSnapshot — предмет в слепке.
 type ItemSnapshot struct {
-	ID     ItemID   `json:"id"`
-	Kind   ItemKind `json:"kind"`
-	Holder EntityID `json:"holder,omitempty"`
-	Pos    Vec2     `json:"pos"`
-	Owner  EntityID `json:"owner,omitempty"`
+	ID       ItemID   `json:"id"`
+	Kind     ItemKind `json:"kind"`
+	Holder   EntityID `json:"holder,omitempty"`
+	Pos      Vec2     `json:"pos"`
+	Owner    EntityID `json:"owner,omitempty"`
+	Consumed bool     `json:"consumed,omitempty"`
 }
 
 // Snapshot снимает состояние мира: срезы order/itemOrder уже упорядочены
@@ -61,6 +63,7 @@ func (w *World) Snapshot() Snapshot {
 			Pos:       c.Pos,
 			HP:        c.HP,
 			MaxHP:     c.MaxHP,
+			Hunger:    w.turn - c.LastFedTurn, // производная, не состояние
 			Alive:     c.Alive,
 			Inventory: w.InventoryOf(c.ID), // выводится из Item.Holder на месте
 			Memory:    append([]Seq(nil), c.Memory...),
@@ -70,11 +73,12 @@ func (w *World) Snapshot() Snapshot {
 	for _, id := range w.itemOrder {
 		it := w.items[id]
 		s.Items = append(s.Items, ItemSnapshot{
-			ID:     it.ID,
-			Kind:   it.Kind,
-			Holder: it.Holder,
-			Pos:    it.Pos,
-			Owner:  it.Owner,
+			ID:       it.ID,
+			Kind:     it.Kind,
+			Holder:   it.Holder,
+			Pos:      it.Pos,
+			Owner:    it.Owner,
+			Consumed: it.Consumed,
 		})
 	}
 	return s

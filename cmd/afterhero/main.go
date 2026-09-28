@@ -121,6 +121,7 @@ func (g *Game) buildSidebar(snap sim.Snapshot) render.Sidebar {
 		sb.Body = journal.CreatureName(body.ID, snap)
 		sb.HP = body.HP
 		sb.MaxHP = body.MaxHP
+		sb.Hunger = body.Hunger
 	}
 	// Свежие события сверху: журнал читают, чтобы узнать, что только что
 	// случилось, а не что было десять минут назад.

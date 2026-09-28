@@ -66,6 +66,7 @@ type Sidebar struct {
 	Body   string
 	HP     int
 	MaxHP  int
+	Hunger int
 	Events []string // свежие сверху
 	Error  string
 }
@@ -165,8 +166,8 @@ func (r *Renderer) Draw(screen *ebiten.Image) {
 		}
 	}
 	for _, it := range r.snap.Items {
-		if it.Holder != 0 || !r.visible[it.Pos] {
-			continue // в инвентаре или в тумане — на карте не рисуется
+		if it.Holder != 0 || it.Consumed || !r.visible[it.Pos] {
+			continue // в инвентаре, съеден или в тумане — на карте не рисуется
 		}
 		r.drawTile(screen, it.Pos.X, it.Pos.Y, itemColor[it.Kind])
 	}
@@ -197,6 +198,13 @@ func (r *Renderer) drawSidebar(screen *ebiten.Image) {
 	r.text(screen, x, y, "Ты — "+r.sidebar.Body, colText)
 	y += 20
 	r.text(screen, x, y, fmt.Sprintf("Здоровье: %d/%d", r.sidebar.HP, r.sidebar.MaxHP), colHP)
+	y += 20
+	// Голод растёт каждый ход; за порогом начинается истощение.
+	hungerCol := colText
+	if r.sidebar.Hunger > sim.HungerGrace {
+		hungerCol = colErr
+	}
+	r.text(screen, x, y, fmt.Sprintf("Голод: %d/%d", r.sidebar.Hunger, sim.HungerGrace), hungerCol)
 	y += 28
 	r.text(screen, x, y, "— события —", colDimTx)
 	y += 22

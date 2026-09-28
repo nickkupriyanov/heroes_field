@@ -55,3 +55,71 @@ func TestCreatureName(t *testing.T) {
 		t.Errorf("второе существо зовут %q, ожидается «культис #2»", got)
 	}
 }
+
+// TestEatCorpsePhrase — фраза еды трупа называет жертву в родительном:
+// «гоблин #1 съедает труп гоблина #4» — каннибализм обязан называться
+// по имени, иначе это просто ужин.
+func TestEatCorpsePhrase(t *testing.T) {
+	s, err := sim.DefaultScenario()
+	if err != nil {
+		t.Fatalf("DefaultScenario: %v", err)
+	}
+	w, _ := sim.NewWorld(s, 5)
+	var events []sim.Event
+	walk := func(to sim.Vec2) {
+		t.Helper()
+		for w.Creature(1).Pos != to {
+			d := sim.Vec2{X: to.X - w.Creature(1).Pos.X, Y: to.Y - w.Creature(1).Pos.Y}
+			if d.X > 1 {
+				d.X = 1
+			}
+			if d.X < -1 {
+				d.X = -1
+			}
+			if d.Y > 1 {
+				d.Y = 1
+			}
+			if d.Y < -1 {
+				d.Y = -1
+			}
+			evs, err := w.Step(sim.Move(d))
+			if err != nil {
+				t.Fatalf("проводка: %v", err)
+			}
+			events = append(events, evs...)
+		}
+	}
+	walk(sim.Vec2{X: 3, Y: 5})
+	var corpse sim.ItemID
+	for i := 0; i < 3; i++ {
+		evs, err := w.Step(sim.Attack(sim.Vec2{X: 0, Y: 1}))
+		if err != nil {
+			t.Fatalf("удар %d: %v", i+1, err)
+		}
+		events = append(events, evs...)
+		for _, e := range evs {
+			if e.Kind == sim.EventCorpseCreated {
+				corpse = e.Item
+			}
+		}
+	}
+	walk(sim.Vec2{X: 3, Y: 6})
+	for _, a := range []sim.Action{sim.PickUp(corpse), sim.Use(corpse)} {
+		evs, err := w.Step(a)
+		if err != nil {
+			t.Fatalf("%+v: %v", a, err)
+		}
+		events = append(events, evs...)
+	}
+	snap := w.Snapshot()
+	var phrase string
+	for i := len(events) - 1; i >= 0; i-- {
+		if events[i].Kind == sim.EventItemUsed {
+			phrase = Phrase(events[i], snap)
+			break
+		}
+	}
+	if phrase != "гоблин #1 съедает труп гоблина #4" {
+		t.Errorf("фраза еды трупа: %q", phrase)
+	}
+}

@@ -12,7 +12,7 @@ import (
 	"afterhero/internal/sim"
 )
 
-// KindName — русское имя вида существа.
+// KindName — русское имя вида существа (именительный).
 func KindName(k sim.CreatureKind) string {
 	switch k {
 	case sim.CreatureGoblin:
@@ -24,13 +24,42 @@ func KindName(k sim.CreatureKind) string {
 	}
 }
 
-// CreatureName — имя вида «гоблин #3». Имя вида и номер — постоянная пара:
-// по ней история читается насквозь, а труп того же гоблина остаётся
-// тем же №3.
+// kindAcc — винительный падеж: «бьёт кого» — гоблина, крысу, культиса.
+func kindAcc(k sim.CreatureKind) string {
+	switch k {
+	case sim.CreatureGoblin:
+		return "гоблина"
+	case sim.CreatureRat:
+		return "крысу"
+	default:
+		return "культиса"
+	}
+}
+
+// kindGen — родительный падеж: «труп кого» — гоблина, крысы, культиса.
+func kindGen(k sim.CreatureKind) string {
+	switch k {
+	case sim.CreatureGoblin:
+		return "гоблина"
+	case sim.CreatureRat:
+		return "крысы"
+	default:
+		return "культиса"
+	}
+}
+
+// CreatureName — имя существа вида «гоблин #3» (именительный). Имя вида
+// и номер — постоянная пара: по ней история читается насквозь, а труп того
+// же гоблина остаётся тем же №3.
 func CreatureName(id sim.EntityID, snap sim.Snapshot) string {
+	return creatureNameWith(id, snap, KindName)
+}
+
+// creatureNameWith собирает имя в нужном падеже.
+func creatureNameWith(id sim.EntityID, snap sim.Snapshot, kindOf func(sim.CreatureKind) string) string {
 	for _, c := range snap.Creatures {
 		if c.ID == id {
-			return fmt.Sprintf("%s #%d", KindName(c.Kind), id)
+			return fmt.Sprintf("%s #%d", kindOf(c.Kind), id)
 		}
 	}
 	return fmt.Sprintf("#%d", id)
@@ -75,7 +104,8 @@ func ItemName(id sim.ItemID, snap sim.Snapshot) string {
 		case sim.ItemWeapon:
 			return "оружие"
 		case sim.ItemCorpse:
-			return "труп " + CreatureName(it.Owner, snap)
+			// Труп зовётся по жертве в родительном: «труп гоблина #4».
+			return "труп " + creatureNameWith(it.Owner, snap, kindGen)
 		}
 	}
 	return fmt.Sprintf("предмет #%d", id)
@@ -92,7 +122,7 @@ func Phrase(e sim.Event, snap sim.Snapshot) string {
 	case sim.EventWaited:
 		return fmt.Sprintf("%s ждёт и слушает темноту", CreatureName(e.Actor, snap))
 	case sim.EventAttacked:
-		return fmt.Sprintf("%s бьёт %s", CreatureName(e.Actor, snap), CreatureName(e.Target, snap))
+		return fmt.Sprintf("%s бьёт %s", CreatureName(e.Actor, snap), creatureNameWith(e.Target, snap, kindAcc))
 	case sim.EventDamaged:
 		if sim.DamageCause(e.Cause) == sim.DamageHunger {
 			return fmt.Sprintf("%s истощён: −%d", CreatureName(e.Target, snap), e.Amount)
@@ -105,13 +135,15 @@ func Phrase(e sim.Event, snap sim.Snapshot) string {
 		if e.Actor == 0 {
 			return fmt.Sprintf("%s погибает", CreatureName(e.Target, snap))
 		}
-		return fmt.Sprintf("%s убивает %s", CreatureName(e.Actor, snap), CreatureName(e.Target, snap))
+		return fmt.Sprintf("%s убивает %s", CreatureName(e.Actor, snap), creatureNameWith(e.Target, snap, kindAcc))
 	case sim.EventCorpseCreated:
-		return fmt.Sprintf("от %s остаётся труп", CreatureName(e.Target, snap))
+		return fmt.Sprintf("от %s остаётся труп", creatureNameWith(e.Target, snap, kindGen))
 	case sim.EventItemDropped:
 		return fmt.Sprintf("%s роняет %s", CreatureName(e.Actor, snap), ItemName(e.Item, snap))
 	case sim.EventItemPickedUp:
 		return fmt.Sprintf("%s подбирает %s", CreatureName(e.Actor, snap), ItemName(e.Item, snap))
+	case sim.EventItemUsed:
+		return fmt.Sprintf("%s съедает %s", CreatureName(e.Actor, snap), ItemName(e.Item, snap))
 	default:
 		return ""
 	}
