@@ -123,9 +123,28 @@ func (g *Game) buildSidebar(snap sim.Snapshot) render.Sidebar {
 		sb.MaxHP = body.MaxHP
 		sb.Hunger = body.Hunger
 	}
-	// Свежие события сверху: журнал читают, чтобы узнать, что только что
-	// случилось, а не что было десять минут назад.
+	// Свежие события сверху; журнал — это то, что видел текущим телом:
+	// мир кишит ожиданиями чужаков, но игрок читает только свою историю.
+	// (DESIGN §7: знание игрока строится из событий, увиденных его телами.)
+	player := snap.Player
+	visibleToPlayer := func(e sim.Event) bool {
+		if e.Kind == sim.EventWorldCreated {
+			return true // первая строка любой истории
+		}
+		if e.Actor == player {
+			return true
+		}
+		for _, wid := range e.Witnesses {
+			if wid == player {
+				return true
+			}
+		}
+		return false
+	}
 	for i := len(g.events) - 1; i >= 0 && len(sb.Events) < 10; i-- {
+		if !visibleToPlayer(g.events[i]) {
+			continue
+		}
 		if phrase := journal.Phrase(g.events[i], snap); phrase != "" {
 			sb.Events = append(sb.Events, phrase)
 		}

@@ -65,7 +65,20 @@ func (w *World) Step(playerAction Action) ([]Event, error) {
 		if c == nil || !c.Alive {
 			continue
 		}
-		// Utility-AI подключается в M4; до того мирные жители не действуют.
+		// Контроллер предлагает намерение; мир проверяет его сам.
+		// Сломанное намерение (синтаксис или семантика) не зависает,
+		// а превращается в потерянный ход — как в жизни.
+		action := w.ai.Decide(w, id)
+		if err := action.Validate(); err != nil {
+			action = Wait()
+		}
+		evs, err := w.act(id, action)
+		if err != nil {
+			evs, err = w.act(id, Wait())
+		}
+		if err == nil {
+			events = append(events, evs...)
+		}
 	}
 
 	// Фаза 3: upkeep — голод растёт как производная (ход − последняя еда),

@@ -19,38 +19,43 @@ func newParty(t *testing.T) *World {
 	return w
 }
 
-// TestStepWait проверяет простейший ход: факт ожидания + завершение хода,
-// и только они.
+// TestStepWait проверяет простейший ход: игрок действует первым, каждый
+// живой NPC — по своему намерению (пока все ждут), TurnEnded — последним.
 func TestStepWait(t *testing.T) {
 	w := newParty(t)
 	events, err := w.Step(Wait())
 	if err != nil {
 		t.Fatalf("Step(Wait): %v", err)
 	}
-	if len(events) != 2 || events[0].Kind != EventWaited || events[1].Kind != EventTurnEnded {
-		t.Fatalf("события хода: %+v", events)
+	if len(events) != 13 { // игрок + 11 NPC + TurnEnded
+		t.Fatalf("событий в ходе: %d, ожидается 13", len(events))
 	}
-	if events[0].Turn != 1 || events[1].Turn != 1 {
-		t.Errorf("номер хода в событиях: %d и %d, ожидается 1", events[0].Turn, events[1].Turn)
+	if events[0].Kind != EventWaited || events[0].Actor != 1 {
+		t.Errorf("первое событие — не ожидание игрока: %+v", events[0])
+	}
+	if events[len(events)-1].Kind != EventTurnEnded {
+		t.Errorf("последнее событие — не конец хода: %+v", events[len(events)-1])
+	}
+	for _, e := range events {
+		if e.Turn != 1 {
+			t.Errorf("событие несёт чужой ход: %+v", e)
+		}
 	}
 	if w.Turn() != 1 {
 		t.Errorf("после хода turn=%d, ожидается 1", w.Turn())
 	}
-	if events[0].Actor != 1 {
-		t.Errorf("факт ожидания принадлежит не игроку: %+v", events[0])
-	}
 }
 
 // TestStepMove проверяет шаг игрока: клетка меняется по событию, факт несёт
-// новую позицию и направление.
+// новую позицию и направление; событие игрока — первое в ходе.
 func TestStepMove(t *testing.T) {
 	w := newParty(t)
 	events, err := w.Step(Move(Vec2{X: 1, Y: 0}))
 	if err != nil {
 		t.Fatalf("Step(Move): %v", err)
 	}
-	if len(events) != 2 || events[0].Kind != EventMoved {
-		t.Fatalf("события хода: %+v", events)
+	if events[0].Kind != EventMoved || events[0].Actor != 1 {
+		t.Fatalf("первое событие — не шаг игрока: %+v", events[0])
 	}
 	if events[0].Pos == nil || *events[0].Pos != (Vec2{X: 3, Y: 2}) {
 		t.Errorf("факт шага несёт позицию %+v, ожидается (3,2)", events[0].Pos)

@@ -44,8 +44,11 @@ func TestPickUpAndDrop(t *testing.T) {
 	if err != nil {
 		t.Fatalf("PickUp(1): %v", err)
 	}
-	if len(events) != 2 || events[0].Kind != EventItemPickedUp || events[0].Item != 1 {
-		t.Fatalf("события поднятия: %+v", events)
+	if events[0].Kind != EventItemPickedUp || events[0].Item != 1 {
+		t.Fatalf("события поднятия: %+v", events[0])
+	}
+	if events[len(events)-1].Kind != EventTurnEnded {
+		t.Fatalf("ход не завершён после поднятия")
 	}
 	if inv := w.InventoryOf(1); len(inv) != 1 || inv[0] != 1 {
 		t.Errorf("инвентарь игрока после поднятия: %v", inv)
@@ -58,8 +61,8 @@ func TestPickUpAndDrop(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Drop(1): %v", err)
 	}
-	if len(events) != 2 || events[0].Kind != EventItemDropped {
-		t.Fatalf("события выбрасывания: %+v", events)
+	if events[0].Kind != EventItemDropped {
+		t.Fatalf("события выбрасывания: %+v", events[0])
 	}
 	if it := w.Item(1); it == nil || it.Holder != 0 || it.Pos != (Vec2{X: 6, Y: 2}) {
 		t.Errorf("предмет не вернулся на пол: %+v", it)

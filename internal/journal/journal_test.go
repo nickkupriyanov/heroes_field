@@ -25,17 +25,30 @@ func TestPhraseBasics(t *testing.T) {
 	}
 	snap := w.Snapshot()
 
-	waited := Phrase(stream[1], snap)
+	waited := phraseOfKind(t, stream, snap, sim.EventWaited, sim.EntityID(1))
 	if !strings.Contains(waited, "гоблин #1") {
 		t.Errorf("фраза ожидания не называет актёра: %q", waited)
 	}
-	moved := Phrase(stream[3], snap)
+	moved := phraseOfKind(t, stream, snap, sim.EventMoved, sim.EntityID(1))
 	if !strings.Contains(moved, "на восток") {
 		t.Errorf("фраза шага не называет направление: %q", moved)
 	}
 	if got := Phrase(stream[len(stream)-1], snap); got != "" {
 		t.Errorf("TurnEnded не должен печататься: %q", got)
 	}
+}
+
+// phraseOfKind — первая фраза события нужного вида от нужного актёра:
+// тесты журнала не должны зависеть от количества событий в ходе.
+func phraseOfKind(t *testing.T, stream []sim.Event, snap sim.Snapshot, kind sim.EventKind, actor sim.EntityID) string {
+	t.Helper()
+	for _, e := range stream {
+		if e.Kind == kind && e.Actor == actor {
+			return Phrase(e, snap)
+		}
+	}
+	t.Fatalf("в потоке нет события вида %d от актёра %d", kind, actor)
+	return ""
 }
 
 // TestCreatureName — имена постоянны: одно имя — один житель на всю партию,

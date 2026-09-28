@@ -16,6 +16,9 @@ func (w *World) applyEvent(e Event) {
 	// Счётчик событий восстанавливается из самого потока, а не хранится
 	// отдельно: replay обязан прийти к тому же nextSeq, что и живой мир.
 	w.nextSeq = e.Seq + 1
+	// Мир хранит свой поток целиком: живая партия и replay пишут здесь
+	// одинаково, поэтому память и отношения выводятся в обоих мирах.
+	w.log = append(w.log, e)
 	switch e.Kind {
 	case EventWorldCreated:
 		w.applyGenesis(e.Genesis)
@@ -115,6 +118,8 @@ func (w *World) applyGenesis(g *Genesis) {
 	w.items = make(map[ItemID]*Item, len(g.Items))
 	w.order = make([]EntityID, 0, len(g.Creatures))
 	w.itemOrder = make([]ItemID, 0, len(g.Items))
+	// Жители думают одинаково в любой партии: контроллер по умолчанию — AI.
+	w.ai = AI{}
 	for _, cg := range g.Creatures {
 		w.creatures[cg.ID] = &Creature{
 			ID:    cg.ID,

@@ -15,8 +15,12 @@ func TestAttackDamage(t *testing.T) {
 	if err != nil {
 		t.Fatalf("атака: %v", err)
 	}
-	if len(events) != 3 || events[0].Kind != EventAttacked || events[1].Kind != EventDamaged {
-		t.Fatalf("события атаки: %+v", events)
+	// Событие игрока — первое в ходе, конец хода — последнее; между ними NPC.
+	if events[0].Kind != EventAttacked || events[1].Kind != EventDamaged {
+		t.Fatalf("события атаки: %+v", events[:2])
+	}
+	if events[len(events)-1].Kind != EventTurnEnded {
+		t.Fatalf("ход не завершён: %+v", events[len(events)-1])
 	}
 	if events[0].Target != 4 || events[1].Target != 4 || events[1].Amount != 2 {
 		t.Fatalf("участники и урон: %+v", events[:2])
@@ -70,10 +74,10 @@ func TestKillChain(t *testing.T) {
 		}
 		killEvents = events
 	}
-	// Третий удар приносит смерть: [Attacked, Damaged, Died, CorpseCreated,
-	// ItemDropped, TurnEnded] — замах и урон предшествуют самой смерти.
-	if len(killEvents) != 6 {
-		t.Fatalf("ожидалось 6 событий убийства: %+v", killEvents)
+	// Третий удар приносит смерть: замах, урон, затем цепочка смерти,
+	// затем выжившие NPC (гоблина #4 уже нет — 10 вместо 11), затем TurnEnded.
+	if len(killEvents) != 16 { // 5 событий фазы 1 + 10 живых NPC + конец хода
+		t.Fatalf("ожидалось 16 событий убийства, есть %d: %+v", len(killEvents), killEvents)
 	}
 	if killEvents[0].Kind != EventAttacked || killEvents[1].Kind != EventDamaged {
 		t.Fatalf("первые события не бой: %+v", killEvents[:2])

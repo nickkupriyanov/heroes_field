@@ -60,6 +60,9 @@ type World struct {
 	nextItem ItemID   // следующий свободный ID предмета (трупы рождаются и после genesis)
 	ended    EndCause // 0 — партия идёт; победа/вымирание кодируют конец
 
+	log []Event    // полный поток событий: источник памяти и отношений (M4.4)
+	ai  Controller // контроллер NPC; не сериализуется: сущность, не состояние
+
 	creatures map[EntityID]*Creature
 	items     map[ItemID]*Item
 	order     []EntityID
@@ -128,6 +131,23 @@ func (w *World) emit(e Event) Event {
 	e = e.canonicalize()
 	w.applyEvent(e)
 	return e
+}
+
+// SetAI подменяет контроллер NPC: для тестов (кукловодение) и особых
+// режимов. Мир не сохраняет контроллер в события — это сущность процесса,
+// а не состояния партии.
+func (w *World) SetAI(c Controller) { w.ai = c }
+
+// Event возвращает событие по сквозному номеру или nil.
+//
+// Мир хранит весь свой поток: память существ — это список номеров,
+// и без возможности развернуть номер в событие «он видел, как его били»
+// оставалась бы списком лотерейных билетов.
+func (w *World) Event(seq Seq) *Event {
+	if seq == 0 || seq > Seq(len(w.log)) {
+		return nil
+	}
+	return &w.log[seq-1]
 }
 
 // Turn возвращает номер текущего хода; 0 — ходов ещё не было.
