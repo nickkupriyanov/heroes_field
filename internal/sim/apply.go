@@ -80,6 +80,10 @@ func (w *World) applyEvent(e Event) {
 		if c := w.creatures[e.Actor]; c != nil {
 			c.LastFedTurn = e.Turn // голод — производная от этого поля
 		}
+	case EventCampaignEnded:
+		// Конец партии — тоже состояние из потока: replay обязан знать,
+		// что ходов больше не будет.
+		w.ended = EndCause(e.Cause)
 	default:
 		// Неизвестный вид события — это баг формата, а не штатная ситуация.
 		// Тихий пропуск молча бы рассинхронизировал миры.

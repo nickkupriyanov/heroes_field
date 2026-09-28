@@ -22,6 +22,9 @@ import "fmt"
 // фиксируются сейчас, чтобы события никогда не меняли свой порядок
 // в зависимости от стадии разработки.
 func (w *World) Step(playerAction Action) ([]Event, error) {
+	if w.ended != 0 {
+		return nil, fmt.Errorf("%w: %s", ErrCampaignOver, endWord(w.ended))
+	}
 	if err := playerAction.Validate(); err != nil {
 		return nil, err
 	}
@@ -92,11 +95,34 @@ func (w *World) Step(playerAction Action) ([]Event, error) {
 	}
 
 	// Фаза 4: закрытие целей мести (M5).
-	// Фаза 5: победа/вымирание/смена тела (M3.4, M5).
+
+	// Фаза 5: проверка результата (DESIGN §2): победа > вымирание >
+	// смена тела > следующий ход. Победа и смена тела — в M5; вымирание —
+	// здесь: мир, где не осталось живых, партию заканчивает сам.
+	alive := 0
+	for _, id := range w.order {
+		if c := w.creatures[id]; c != nil && c.Alive {
+			alive++
+		}
+	}
+	if alive == 0 {
+		events = append(events, w.emit(Event{
+			Kind:  EventCampaignEnded,
+			Cause: uint8(EndExtinction),
+		}))
+	}
 
 	// Фаза 6: ход завершён. TurnEnded — всегда последнее событие хода.
 	events = append(events, w.emit(Event{Kind: EventTurnEnded}))
 	return events, nil
+}
+
+// endWord — русское слово исхода для сообщения об ошибке.
+func endWord(c EndCause) string {
+	if c == EndVictory {
+		return "победа"
+	}
+	return "вымирание"
 }
 
 // act применяет действие существа после семантической проверки против мира.

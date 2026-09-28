@@ -16,8 +16,10 @@ type Snapshot struct {
 	Player    EntityID           `json:"player"`
 	Width     int                `json:"w"`
 	Height    int                `json:"h"`
-	Creatures []CreatureSnapshot `json:"creatures"` // по возрастанию ID
-	Items     []ItemSnapshot     `json:"items"`     // по возрастанию ID
+	Ended     bool               `json:"ended,omitempty"` // партия завершена
+	End       uint8              `json:"end,omitempty"`   // причина конца (EndCause), когда Ended
+	Creatures []CreatureSnapshot `json:"creatures"`       // по возрастанию ID
+	Items     []ItemSnapshot     `json:"items"`           // по возрастанию ID
 }
 
 // CreatureSnapshot — существо в слепке. Порядок Inventory и Memory
@@ -54,6 +56,8 @@ func (w *World) Snapshot() Snapshot {
 		Player:  w.player,
 		Width:   w.width,
 		Height:  w.height,
+		Ended:   w.ended != 0,
+		End:     uint8(w.ended),
 	}
 	for _, id := range w.order {
 		c := w.creatures[id]

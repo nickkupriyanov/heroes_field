@@ -57,7 +57,8 @@ type World struct {
 
 	turn     int
 	nextSeq  Seq
-	nextItem ItemID // следующий свободный ID предмета (трупы рождаются и после genesis)
+	nextItem ItemID   // следующий свободный ID предмета (трупы рождаются и после genesis)
+	ended    EndCause // 0 — партия идёт; победа/вымирание кодируют конец
 
 	creatures map[EntityID]*Creature
 	items     map[ItemID]*Item
