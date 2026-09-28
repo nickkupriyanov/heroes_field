@@ -41,6 +41,33 @@ func (w *World) applyEvent(e Event) {
 			it.Holder = 0
 			it.Pos = *e.Pos
 		}
+	case EventAttacked:
+		// Сам замах состояния не меняет: урон списывает Damaged.
+		// Факт нужен журналу («кто на кого поднял руку») и памяти.
+	case EventDamaged:
+		if c := w.creatures[e.Target]; c != nil && c.HP > 0 {
+			c.HP -= e.Amount
+			if c.HP < 0 {
+				c.HP = 0
+			}
+		}
+	case EventDied:
+		if c := w.creatures[e.Target]; c != nil {
+			c.Alive = false
+		}
+	case EventCorpseCreated:
+		// Труп регистрируется как предмет: ID погибшего живёт в Owner,
+		// поэтому «он ел труп гоблина #4» разрешается в имя жертвы.
+		w.items[e.Item] = &Item{
+			ID:    e.Item,
+			Kind:  ItemCorpse,
+			Pos:   *e.Pos,
+			Owner: e.Target,
+		}
+		w.itemOrder = append(w.itemOrder, e.Item)
+		if e.Item >= w.nextItem {
+			w.nextItem = e.Item + 1 // счётчик предметов восстанавливается из потока
+		}
 	default:
 		// Неизвестный вид события — это баг формата, а не штатная ситуация.
 		// Тихий пропуск молча бы рассинхронизировал миры.
@@ -91,6 +118,9 @@ func (w *World) applyGenesis(g *Genesis) {
 			Owner: ig.Owner,
 		}
 		w.itemOrder = append(w.itemOrder, ig.ID)
+		if ig.ID >= w.nextItem {
+			w.nextItem = ig.ID + 1 // счётчик предметов — тоже вывод из потока
+		}
 	}
 	// Стабильный порядок — по возрастанию ID, независимо от порядка
 	// в payload: договор детерминизма не должен зависеть от чужого файла.

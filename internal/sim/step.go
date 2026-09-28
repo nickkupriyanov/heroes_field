@@ -138,6 +138,43 @@ func (w *World) act(id EntityID, a Action) ([]Event, error) {
 			Pos:       &pos,
 			Witnesses: w.witnesses(pos),
 		})}, nil
+	case ActionAttack:
+		to := c.Pos.Add(a.Dir)
+		victimID := w.occupiedBy(to)
+		if victimID == 0 {
+			// Бить можно только живых соседей: труп — уже предмет,
+			// стена — не собеседник.
+			return nil, fmt.Errorf("%w: там некого бить", ErrInvalidAction)
+		}
+		damage := KindDamage(c.Kind)
+		if w.HoldingWeapon(id) {
+			damage++ // любая железка в руках стоит лишней единицы урона
+		}
+		dir, pos := a.Dir, w.creatures[victimID].Pos
+		events := []Event{
+			w.emit(Event{
+				Kind:      EventAttacked,
+				Actor:     id,
+				Target:    victimID,
+				Pos:       &pos,
+				Dir:       &dir,
+				Witnesses: w.witnesses(pos),
+			}),
+			w.emit(Event{
+				Kind:      EventDamaged,
+				Actor:     id,
+				Target:    victimID,
+				Amount:    damage,
+				Cause:     uint8(DamageCombat),
+				Pos:       &pos,
+				Witnesses: w.witnesses(pos),
+			}),
+		}
+		// emit применяет события сразу: после Damaged здоровье уже списано.
+		if w.creatures[victimID].HP <= 0 {
+			events = append(events, w.kill(victimID, id, DeathCombat)...)
+		}
+		return events, nil
 	default:
 		// Атака и предметы приходят в M3; для них sintaxис уже валиден,
 		// но мир ещё не умеет их применять.
@@ -155,4 +192,45 @@ func (w *World) occupiedBy(p Vec2) EntityID {
 		}
 	}
 	return 0
+}
+
+// kill проводит цепочку смерти: Died, CorpseCreated и выпадение инвентаря
+// по одному предмету. Убийца нужен цели мести (M5) и журналу; Actor=0 у Died
+// означает безличную смерть.
+//
+// Порядок фиксирован: сначала сама смерть, потом труп, потом вещи —
+// так свидетели видят причину раньше её материальных последствий,
+// и replay читается как протокол вскрытия.
+func (w *World) kill(victim, killer EntityID, cause DeathCause) []Event {
+	v := w.creatures[victim]
+	pos := v.Pos
+	var events []Event
+	events = append(events, w.emit(Event{
+		Kind:      EventDied,
+		Actor:     killer,
+		Target:    victim,
+		Cause:     uint8(cause),
+		Pos:       &pos,
+		Witnesses: w.witnesses(pos),
+	}))
+	// Труп — предмет с ID погибшего: свидетели каннибализма узнают жертву
+	// именно через эту связь.
+	events = append(events, w.emit(Event{
+		Kind:      EventCorpseCreated,
+		Target:    victim,
+		Item:      w.nextItem,
+		Pos:       &pos,
+		Witnesses: w.witnesses(pos),
+	}))
+	// Инвентарь выпадает в клетку смерти в порядке itemOrder.
+	for _, itemID := range w.InventoryOf(victim) {
+		events = append(events, w.emit(Event{
+			Kind:      EventItemDropped,
+			Actor:     victim,
+			Item:      itemID,
+			Pos:       &pos,
+			Witnesses: w.witnesses(pos),
+		}))
+	}
+	return events
 }

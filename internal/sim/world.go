@@ -55,8 +55,9 @@ type World struct {
 	seed uint64
 	rng  *rand.Rand
 
-	turn    int
-	nextSeq Seq
+	turn     int
+	nextSeq  Seq
+	nextItem ItemID // следующий свободный ID предмета (трупы рождаются и после genesis)
 
 	creatures map[EntityID]*Creature
 	items     map[ItemID]*Item

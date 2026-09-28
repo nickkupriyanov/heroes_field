@@ -62,6 +62,25 @@ func dirWord(d *sim.Vec2) string {
 	}
 }
 
+// ItemName — имя предмета. Труп зовётся по жертве: «труп гоблина #4» —
+// потому что читателя волнует не предмет, а того, кем он был.
+func ItemName(id sim.ItemID, snap sim.Snapshot) string {
+	for _, it := range snap.Items {
+		if it.ID != id {
+			continue
+		}
+		switch it.Kind {
+		case sim.ItemFood:
+			return "еда"
+		case sim.ItemWeapon:
+			return "оружие"
+		case sim.ItemCorpse:
+			return "труп " + CreatureName(it.Owner, snap)
+		}
+	}
+	return fmt.Sprintf("предмет #%d", id)
+}
+
 // Phrase превращает событие в одну короткую фразу. Пустая строка —
 // событие не для печати (например, TurnEnded: номер хода и так на экране).
 func Phrase(e sim.Event, snap sim.Snapshot) string {
@@ -72,6 +91,27 @@ func Phrase(e sim.Event, snap sim.Snapshot) string {
 		return fmt.Sprintf("%s двигается %s", CreatureName(e.Actor, snap), dirWord(e.Dir))
 	case sim.EventWaited:
 		return fmt.Sprintf("%s ждёт и слушает темноту", CreatureName(e.Actor, snap))
+	case sim.EventAttacked:
+		return fmt.Sprintf("%s бьёт %s", CreatureName(e.Actor, snap), CreatureName(e.Target, snap))
+	case sim.EventDamaged:
+		if sim.DamageCause(e.Cause) == sim.DamageHunger {
+			return fmt.Sprintf("%s истощён: −%d", CreatureName(e.Target, snap), e.Amount)
+		}
+		return fmt.Sprintf("%s теряет %d от удара", CreatureName(e.Target, snap), e.Amount)
+	case sim.EventDied:
+		if sim.DeathCause(e.Cause) == sim.DeathHunger {
+			return fmt.Sprintf("%s умирает от голода", CreatureName(e.Target, snap))
+		}
+		if e.Actor == 0 {
+			return fmt.Sprintf("%s погибает", CreatureName(e.Target, snap))
+		}
+		return fmt.Sprintf("%s убивает %s", CreatureName(e.Actor, snap), CreatureName(e.Target, snap))
+	case sim.EventCorpseCreated:
+		return fmt.Sprintf("от %s остаётся труп", CreatureName(e.Target, snap))
+	case sim.EventItemDropped:
+		return fmt.Sprintf("%s роняет %s", CreatureName(e.Actor, snap), ItemName(e.Item, snap))
+	case sim.EventItemPickedUp:
+		return fmt.Sprintf("%s подбирает %s", CreatureName(e.Actor, snap), ItemName(e.Item, snap))
 	default:
 		return ""
 	}
