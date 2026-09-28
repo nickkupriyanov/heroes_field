@@ -92,6 +92,18 @@ func (w *World) applyEvent(e Event) {
 		// Тихий пропуск молча бы рассинхронизировал миры.
 		panic(fmt.Sprintf("sim: apply не умеет применять событие вида %d", e.Kind))
 	}
+
+	// Память — проекция потока: каждый свидетель памятного события
+	// запоминает его номер (отбор фактов — в EventKind.Memorable).
+	// Смертный видит свой конец, живые — чужой: свидетели считаются
+	// до применения смерти, и это не баг, а метафора.
+	if e.Kind.Memorable() {
+		for _, id := range e.Witnesses {
+			if c := w.creatures[id]; c != nil {
+				c.remember(e.Seq)
+			}
+		}
+	}
 }
 
 // applyGenesis восстанавливает полный мир из payload WorldCreated.
