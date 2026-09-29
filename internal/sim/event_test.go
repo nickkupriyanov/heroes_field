@@ -112,7 +112,7 @@ func TestMemorable(t *testing.T) {
 		EventItemPickedUp:  true,
 		EventItemUsed:      true,
 	}
-	for k := EventKind(1); k <= EventTurnEnded; k++ {
+	for k := EventKind(1); k <= EventCampaignContinued; k++ {
 		if got, want := k.Memorable(), memorable[k]; got != want {
 			t.Errorf("Memorable(%d) = %v, ожидается %v", k, got, want)
 		}

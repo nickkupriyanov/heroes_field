@@ -18,23 +18,17 @@ import "fmt"
 //
 // Невалидное действие — синтаксически или семантически — возвращает ошибку
 // без единого события и без расхода хода: игрок просто пробует другое.
-// Фазы 3–5 заполняются по мере вех (M3, M5); конвейер и его порядок
-// фиксируются сейчас, чтобы события никогда не меняли свой порядок
-// в зависимости от стадии разработки.
+// Все шесть фаз входят в формат и не меняют порядок между прогонами.
 func (w *World) Step(playerAction Action) ([]Event, error) {
 	if w.ended != 0 {
 		return nil, fmt.Errorf("%w: %s", ErrCampaignOver, endWord(w.ended))
 	}
+	if w.NeedsBodyChoice() {
+		return nil, ErrBodyChoiceRequired
+	}
 	if err := playerAction.Validate(); err != nil {
 		return nil, err
 	}
-	player := w.creatures[w.player]
-	if player == nil || !player.Alive {
-		// В M5 смерть игрока открывает выбор нового тела, а не ошибку;
-		// до тех пор тело игрока умереть не может.
-		return nil, fmt.Errorf("%w: тело игрока мертво", ErrInvalidAction)
-	}
-
 	var events []Event
 
 	// Ход начинается здесь: все события хода, от первого шага игрока
@@ -107,18 +101,22 @@ func (w *World) Step(playerAction Action) ([]Event, error) {
 		}
 	}
 
-	// Фаза 4: закрытие целей мести (M5).
+	// Фаза 4: открытие и закрытие целей мести.
+	events = append(events, w.resolveVengeance(events)...)
 
 	// Фаза 5: проверка результата (DESIGN §2): победа > вымирание >
-	// смена тела > следующий ход. Победа и смена тела — в M5; вымирание —
-	// здесь: мир, где не осталось живых, партию заканчивает сам.
+	// смена тела > следующий ход.
 	alive := 0
 	for _, id := range w.order {
 		if c := w.creatures[id]; c != nil && c.Alive {
 			alive++
 		}
 	}
-	if alive == 0 {
+	if !w.sandbox && w.legacy >= LegacyGoal {
+		events = append(events, w.emit(Event{
+			Kind: EventCampaignEnded, Cause: uint8(EndVictory), Amount: w.legacy,
+		}))
+	} else if alive == 0 {
 		events = append(events, w.emit(Event{
 			Kind:  EventCampaignEnded,
 			Cause: uint8(EndExtinction),
@@ -276,7 +274,7 @@ func (w *World) occupiedBy(p Vec2) EntityID {
 }
 
 // kill проводит цепочку смерти: Died, CorpseCreated и выпадение инвентаря
-// по одному предмету. Убийца нужен цели мести (M5) и журналу; Actor=0 у Died
+// по одному предмету. Убийца нужен цели мести и журналу; Actor=0 у Died
 // означает безличную смерть.
 //
 // Порядок фиксирован: сначала сама смерть, потом труп, потом вещи —

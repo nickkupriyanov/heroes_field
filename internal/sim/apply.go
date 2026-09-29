@@ -83,10 +83,30 @@ func (w *World) applyEvent(e Event) {
 		if c := w.creatures[e.Actor]; c != nil {
 			c.LastFedTurn = e.Turn // голод — производная от этого поля
 		}
+	case EventClaimOpened:
+		w.claims = append(w.claims, VengeanceClaim{
+			Victim: e.Target, Killer: e.Actor, State: ClaimActive, Opened: e.Seq,
+		})
+	case EventClaimClosed:
+		if claim := w.activeClaim(e.Target); claim != nil {
+			claim.Closed = e.Seq
+			claim.CloseReason = ClaimCloseReason(e.Cause)
+			if claim.CloseReason == ClaimClosedByFulfillment {
+				claim.State = ClaimFulfilled
+			} else {
+				claim.State = ClaimMissed
+			}
+			w.legacy += e.Amount
+		}
+	case EventBodyChosen:
+		w.player = e.Actor
 	case EventCampaignEnded:
 		// Конец партии — тоже состояние из потока: replay обязан знать,
 		// что ходов больше не будет.
 		w.ended = EndCause(e.Cause)
+	case EventCampaignContinued:
+		w.ended = 0
+		w.sandbox = true
 	default:
 		// Неизвестный вид события — это баг формата, а не штатная ситуация.
 		// Тихий пропуск молча бы рассинхронизировал миры.
@@ -128,6 +148,7 @@ func (w *World) applyGenesis(g *Genesis) {
 
 	w.creatures = make(map[EntityID]*Creature, len(g.Creatures))
 	w.items = make(map[ItemID]*Item, len(g.Items))
+	w.nextItem = 1
 	w.order = make([]EntityID, 0, len(g.Creatures))
 	w.itemOrder = make([]ItemID, 0, len(g.Items))
 	// Жители думают одинаково в любой партии: контроллер по умолчанию — AI.

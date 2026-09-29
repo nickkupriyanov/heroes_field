@@ -11,6 +11,10 @@ var ErrInvalidAction = errors.New("invalid action")
 // невалидное действие — «попробуй другое», конец партии — «игра окончена».
 var ErrCampaignOver = errors.New("campaign over")
 
+// ErrBodyChoiceRequired means the current body died and Step is paused until
+// ChooseBody selects one of the surviving inhabitants.
+var ErrBodyChoiceRequired = errors.New("body choice required")
+
 // Action — намерение существа на текущий ход.
 //
 // Действие — это только желание: оно ничего не меняет в мире и проверяется

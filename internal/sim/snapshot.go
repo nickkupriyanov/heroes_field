@@ -11,15 +11,19 @@ package sim
 // слепке лишь раздувала бы сравнение. Если появятся разрушаемые стены —
 // поле появится вместе с событием разрушения.
 type Snapshot struct {
-	Turn      int                `json:"turn"`
-	NextSeq   Seq                `json:"nextSeq"`
-	Player    EntityID           `json:"player"`
-	Width     int                `json:"w"`
-	Height    int                `json:"h"`
-	Ended     bool               `json:"ended,omitempty"` // партия завершена
-	End       uint8              `json:"end,omitempty"`   // причина конца (EndCause), когда Ended
-	Creatures []CreatureSnapshot `json:"creatures"`       // по возрастанию ID
-	Items     []ItemSnapshot     `json:"items"`           // по возрастанию ID
+	Turn         int                `json:"turn"`
+	NextSeq      Seq                `json:"nextSeq"`
+	Player       EntityID           `json:"player"`
+	Width        int                `json:"w"`
+	Height       int                `json:"h"`
+	Ended        bool               `json:"ended,omitempty"` // партия завершена
+	End          uint8              `json:"end,omitempty"`   // причина конца (EndCause), когда Ended
+	Sandbox      bool               `json:"sandbox,omitempty"`
+	Legacy       int                `json:"legacy,omitempty"`
+	AwaitingBody bool               `json:"awaiting_body,omitempty"`
+	Claims       []VengeanceClaim   `json:"claims,omitempty"`
+	Creatures    []CreatureSnapshot `json:"creatures"` // по возрастанию ID
+	Items        []ItemSnapshot     `json:"items"`     // по возрастанию ID
 }
 
 // CreatureSnapshot — существо в слепке. Порядок Inventory и Memory
@@ -51,13 +55,17 @@ type ItemSnapshot struct {
 // по возрастанию ID, поэтому слепок каноничен без дополнительной сортировки.
 func (w *World) Snapshot() Snapshot {
 	s := Snapshot{
-		Turn:    w.turn,
-		NextSeq: w.nextSeq,
-		Player:  w.player,
-		Width:   w.width,
-		Height:  w.height,
-		Ended:   w.ended != 0,
-		End:     uint8(w.ended),
+		Turn:         w.turn,
+		NextSeq:      w.nextSeq,
+		Player:       w.player,
+		Width:        w.width,
+		Height:       w.height,
+		Ended:        w.ended != 0,
+		End:          uint8(w.ended),
+		Sandbox:      w.sandbox,
+		Legacy:       w.legacy,
+		AwaitingBody: w.NeedsBodyChoice(),
+		Claims:       append([]VengeanceClaim(nil), w.claims...),
 	}
 	for _, id := range w.order {
 		c := w.creatures[id]

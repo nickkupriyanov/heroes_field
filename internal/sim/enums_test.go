@@ -39,6 +39,7 @@ func TestEnumStability(t *testing.T) {
 		{"EventBodyChosen", uint64(EventBodyChosen), 13},
 		{"EventCampaignEnded", uint64(EventCampaignEnded), 14},
 		{"EventTurnEnded", uint64(EventTurnEnded), 15},
+		{"EventCampaignContinued", uint64(EventCampaignContinued), 16},
 		{"ItemFood", uint64(ItemFood), 1},
 		{"ItemWeapon", uint64(ItemWeapon), 2},
 		{"ItemCorpse", uint64(ItemCorpse), 3},

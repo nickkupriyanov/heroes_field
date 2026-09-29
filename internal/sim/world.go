@@ -59,6 +59,9 @@ type World struct {
 	nextSeq  Seq
 	nextItem ItemID   // следующий свободный ID предмета (трупы рождаются и после genesis)
 	ended    EndCause // 0 — партия идёт; победа/вымирание кодируют конец
+	sandbox  bool
+	legacy   int
+	claims   []VengeanceClaim
 
 	log []Event    // полный поток событий: источник памяти и отношений (M4.4)
 	ai  Controller // контроллер NPC; не сериализуется: сущность, не состояние
@@ -152,6 +155,9 @@ func (w *World) Event(seq Seq) *Event {
 
 // Turn возвращает номер текущего хода; 0 — ходов ещё не было.
 func (w *World) Turn() int { return w.turn }
+
+// Seed identifies the deterministic campaign genesis.
+func (w *World) Seed() uint64 { return w.seed }
 
 // Player возвращает ID текущего тела игрока.
 func (w *World) Player() EntityID { return w.player }

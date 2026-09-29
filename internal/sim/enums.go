@@ -8,7 +8,7 @@ package sim
 // SchemaVersion — версия схемы потока событий. Инкрементируется при любом
 // несовместимом изменении формата; каждое событие несёт её, чтобы replay
 // мог отказаться от чужой версии, а не молча воспроизвести ерунду.
-const SchemaVersion = 1
+const SchemaVersion = 2
 
 // CellKind — тип клетки карты.
 type CellKind uint8
@@ -49,21 +49,22 @@ const (
 type EventKind uint8
 
 const (
-	EventWorldCreated  EventKind = 1  // genesis: полная конфигурация исходного мира
-	EventMoved         EventKind = 2  // существо сменило клетку
-	EventWaited        EventKind = 3  // существо переждало ход
-	EventAttacked      EventKind = 4  // атака: актёр и цель
-	EventDamaged       EventKind = 5  // получен урон (бой или голод)
-	EventDied          EventKind = 6  // существо погибло
-	EventCorpseCreated EventKind = 7  // из погибшего возник предмет-труп
-	EventItemDropped   EventKind = 8  // предмет покинул инвентарь/клетку
-	EventItemPickedUp  EventKind = 9  // предмет поднят с клетки
-	EventItemUsed      EventKind = 10 // предмет употреблён (еда съедена)
-	EventClaimOpened   EventKind = 11 // создана активная цель мести
-	EventClaimClosed   EventKind = 12 // цель мести закрыта (любым исходом)
-	EventBodyChosen    EventKind = 13 // игрок переселился в новое тело
-	EventCampaignEnded EventKind = 14 // кампания завершена (победа/вымирание)
-	EventTurnEnded     EventKind = 15 // ход завершён, номер хода увеличен
+	EventWorldCreated      EventKind = 1  // genesis: полная конфигурация исходного мира
+	EventMoved             EventKind = 2  // существо сменило клетку
+	EventWaited            EventKind = 3  // существо переждало ход
+	EventAttacked          EventKind = 4  // атака: актёр и цель
+	EventDamaged           EventKind = 5  // получен урон (бой или голод)
+	EventDied              EventKind = 6  // существо погибло
+	EventCorpseCreated     EventKind = 7  // из погибшего возник предмет-труп
+	EventItemDropped       EventKind = 8  // предмет покинул инвентарь/клетку
+	EventItemPickedUp      EventKind = 9  // предмет поднят с клетки
+	EventItemUsed          EventKind = 10 // предмет употреблён (еда съедена)
+	EventClaimOpened       EventKind = 11 // создана активная цель мести
+	EventClaimClosed       EventKind = 12 // цель мести закрыта (любым исходом)
+	EventBodyChosen        EventKind = 13 // игрок переселился в новое тело
+	EventCampaignEnded     EventKind = 14 // кампания завершена (победа/вымирание)
+	EventTurnEnded         EventKind = 15 // ход завершён, номер хода увеличен
+	EventCampaignContinued EventKind = 16 // после победы включён sandbox
 )
 
 // ItemKind — категория предмета.

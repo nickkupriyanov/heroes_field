@@ -144,6 +144,22 @@ func Phrase(e sim.Event, snap sim.Snapshot) string {
 		return fmt.Sprintf("%s подбирает %s", CreatureName(e.Actor, snap), ItemName(e.Item, snap))
 	case sim.EventItemUsed:
 		return fmt.Sprintf("%s съедает %s", CreatureName(e.Actor, snap), ItemName(e.Item, snap))
+	case sim.EventClaimOpened:
+		return fmt.Sprintf("Цель мести: %s", CreatureName(e.Actor, snap))
+	case sim.EventClaimClosed:
+		if sim.ClaimCloseReason(e.Cause) == sim.ClaimClosedByFulfillment {
+			return fmt.Sprintf("Месть исполнена: %s", CreatureName(e.Target, snap))
+		}
+		return fmt.Sprintf("Месть упущена: %s", CreatureName(e.Target, snap))
+	case sim.EventBodyChosen:
+		return fmt.Sprintf("Теперь ты — %s", CreatureName(e.Actor, snap))
+	case sim.EventCampaignEnded:
+		if sim.EndCause(e.Cause) == sim.EndVictory {
+			return "Три мести исполнены. Наследие завоёвано."
+		}
+		return "Мир вымер."
+	case sim.EventCampaignContinued:
+		return "Победа осталась позади; мир живёт дальше."
 	default:
 		return ""
 	}
