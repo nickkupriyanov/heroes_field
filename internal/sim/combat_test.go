@@ -116,6 +116,7 @@ func TestCombatReplay(t *testing.T) {
 		t.Fatalf("DefaultScenario: %v", err)
 	}
 	w, genesis := NewWorld(s, 21)
+	w.SetAI(PassiveAI{})
 	stream := []Event{genesis}
 	stream = append(stream, walkTo(t, w, Vec2{X: 3, Y: 5})...)
 	for i := 0; i < 3; i++ {

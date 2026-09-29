@@ -5,35 +5,6 @@ import (
 	"testing"
 )
 
-// walkTo проводит игрока к клетке шагами по осям и возвращает события
-// всех состоявшихся ходов — они нужны тестам с replay, чтобы поток
-// не дырявился.
-func walkTo(t *testing.T, w *World, to Vec2) []Event {
-	t.Helper()
-	var events []Event
-	player := w.Creature(w.Player())
-	for player.Pos != to {
-		d := Vec2{}
-		if to.X > player.Pos.X {
-			d.X = 1
-		} else if to.X < player.Pos.X {
-			d.X = -1
-		}
-		if to.Y > player.Pos.Y {
-			d.Y = 1
-		} else if to.Y < player.Pos.Y {
-			d.Y = -1
-		}
-		evs, err := w.Step(Move(d))
-		if err != nil {
-			t.Fatalf("проводка к %v из %v: %v", to, player.Pos, err)
-		}
-		events = append(events, evs...)
-		player = w.Creature(w.Player())
-	}
-	return events
-}
-
 // TestPickUpAndDrop — полный цикл предмета: подобрал → в инвентаре,
 // выбросил → лежит в клетке. Единственный источник правды — Item.Holder.
 func TestPickUpAndDrop(t *testing.T) {
@@ -112,6 +83,7 @@ func TestInventoryDerivation(t *testing.T) {
 		t.Fatalf("DefaultScenario: %v", err)
 	}
 	w, genesis := NewWorld(s, 9)
+	w.SetAI(PassiveAI{})
 	stream := []Event{genesis}
 	stream = append(stream, walkTo(t, w, Vec2{X: 6, Y: 2})...)
 	for _, a := range []Action{PickUp(1), Move(Vec2{X: -1, Y: 0}), Drop(1)} {

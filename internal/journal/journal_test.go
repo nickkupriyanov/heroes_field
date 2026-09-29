@@ -15,6 +15,7 @@ func TestPhraseBasics(t *testing.T) {
 		t.Fatalf("DefaultScenario: %v", err)
 	}
 	w, ev := sim.NewWorld(s, 3)
+	w.SetAI(sim.PassiveAI{})
 	stream := []sim.Event{ev}
 	for _, a := range []sim.Action{sim.Wait(), sim.Move(sim.Vec2{X: 1, Y: 0})} {
 		events, err := w.Step(a)
@@ -59,6 +60,7 @@ func TestCreatureName(t *testing.T) {
 		t.Fatalf("DefaultScenario: %v", err)
 	}
 	w, _ := sim.NewWorld(s, 1)
+	w.SetAI(sim.PassiveAI{})
 	snap := w.Snapshot()
 	if got := CreatureName(1, snap); got != "гоблин #1" {
 		t.Errorf("первое существо зовут %q, ожидается «гоблин #1»", got)
@@ -78,6 +80,7 @@ func TestEatCorpsePhrase(t *testing.T) {
 		t.Fatalf("DefaultScenario: %v", err)
 	}
 	w, _ := sim.NewWorld(s, 5)
+	w.SetAI(sim.PassiveAI{})
 	var events []sim.Event
 	walk := func(to sim.Vec2) {
 		t.Helper()

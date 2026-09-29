@@ -80,6 +80,7 @@ func TestMemorySurvivesReplay(t *testing.T) {
 		t.Fatalf("DefaultScenario: %v", err)
 	}
 	w, genesis := NewWorld(s, 17)
+	w.SetAI(PassiveAI{})
 	stream := []Event{genesis}
 	stream = append(stream, walkTo(t, w, Vec2{X: 3, Y: 5})...)
 	evs, err := w.Step(Attack(Vec2{X: 0, Y: 1}))

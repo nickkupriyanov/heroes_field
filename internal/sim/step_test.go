@@ -6,19 +6,6 @@ import (
 	"testing"
 )
 
-// newParty — вспомогательная функция тестов: мир по умолчанию с фиксированным
-// seed. Тесты хода не зависят от случайности (её в M1 ещё нет), но единая
-// заготовка не даст этому протухнуть незаметно.
-func newParty(t *testing.T) *World {
-	t.Helper()
-	s, err := DefaultScenario()
-	if err != nil {
-		t.Fatalf("DefaultScenario: %v", err)
-	}
-	w, _ := NewWorld(s, 42)
-	return w
-}
-
 // TestStepWait проверяет простейший ход: игрок действует первым, каждый
 // живой NPC — по своему намерению (пока все ждут), TurnEnded — последним.
 func TestStepWait(t *testing.T) {
@@ -129,11 +116,7 @@ func TestStepUnsupportedAction(t *testing.T) {
 // TestStepReplayParty — replay партии с настоящими ходами: мир,
 // восстановленный из потока, байт-в-байт равен живому.
 func TestStepReplayParty(t *testing.T) {
-	s, err := DefaultScenario()
-	if err != nil {
-		t.Fatalf("DefaultScenario: %v", err)
-	}
-	w, genesis := NewWorld(s, 42)
+	w, genesis := newFrozenWorld(t, 42)
 	stream := []Event{genesis}
 	for _, a := range []Action{
 		Wait(),
