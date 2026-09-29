@@ -6,15 +6,16 @@ import (
 	"testing"
 )
 
-// TestExtinction — партия без еды заканчивается вымиранием: крысы (HP 4)
-// умирают первыми (~14-й ход), культисы (HP 5) — вторыми, гоблины (HP 6) —
-// последними; последний ход несёт CampaignEnded{Extinction} до TurnEnded.
+// TestExtinction — партия без еды заканчивается вымиранием: после льготного
+// периода крысы (HP 4) умирают первыми, культисты (HP 5) — вторыми, гоблины
+// (HP 6) — последними; последний ход несёт CampaignEnded{Extinction} до TurnEnded.
 func TestExtinction(t *testing.T) {
 	s, err := DefaultScenario()
 	if err != nil {
 		t.Fatalf("DefaultScenario: %v", err)
 	}
 	w, genesis := NewWorld(s, 31)
+	w.SetAI(PassiveAI{})
 	stream := []Event{genesis}
 	var last []Event
 	for {
@@ -57,12 +58,11 @@ func TestExtinction(t *testing.T) {
 	}
 }
 
-// TestExtinctionTimeline — темп голодной смерти: медианные пороги баланса
-// (первая смерть ≤ 60-го хода) выполняются с запасом даже без еды.
+// TestExtinctionTimeline проверяет точный момент первой голодной смерти.
 func TestExtinctionTimeline(t *testing.T) {
 	w := newParty(t)
 	firstDeath := 0
-	for w.Turn() < 40 {
+	for w.Turn() < HungerGrace+10 {
 		events, err := w.Step(Wait())
 		if err != nil {
 			break
@@ -74,9 +74,9 @@ func TestExtinctionTimeline(t *testing.T) {
 		}
 	}
 	if firstDeath == 0 {
-		t.Fatal("за 40 ходов никто не умер от голода")
+		t.Fatalf("за %d ходов никто не умер от голода", HungerGrace+10)
 	}
-	if firstDeath > 20 {
-		t.Errorf("первая смерть на %d-м ходу — темп провисает (порог баланса: ≤60, ожидание ~14)", firstDeath)
+	if firstDeath != HungerGrace+KindMaxHP(CreatureRat) {
+		t.Errorf("первая смерть на %d-м ходу, ожидался %d-й", firstDeath, HungerGrace+KindMaxHP(CreatureRat))
 	}
 }

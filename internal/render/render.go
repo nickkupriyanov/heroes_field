@@ -4,9 +4,12 @@
 package render
 
 import (
+	"bytes"
+	_ "embed"
 	"fmt"
 	"image"
 	"image/color"
+	"image/png"
 
 	"github.com/hajimehoshi/ebiten/v2"
 	"github.com/hajimehoshi/ebiten/v2/text"
@@ -26,29 +29,12 @@ const (
 	windowH  = 800
 )
 
-// Палитра плейсхолдеров: до оригинального тайлсета (M6) мир рисуется
-// цветными прямоугольниками. Палитра подобрана так, чтобы фракции
-// читались с первого взгляда: зелёные гоблины, серые крысы, лиловые
-// культисты.
+// Палитра UI дополняет встроенный pixel-art atlas.
 var (
-	colWall    = color.RGBA{R: 58, G: 58, B: 68, A: 255}
-	colFloor   = color.RGBA{R: 28, G: 26, B: 34, A: 255}
 	colSidebar = color.RGBA{R: 12, G: 11, B: 16, A: 255}
 	colPlayer  = color.RGBA{R: 235, G: 235, B: 235, A: 255}
 	colUnseen  = color.RGBA{R: 5, G: 4, B: 7, A: 255} // никогда не видел
 	colDim     = color.RGBA{R: 0, G: 0, B: 0, A: 150} // исследовано, но вне взгляда
-
-	kindColor = map[sim.CreatureKind]color.RGBA{
-		sim.CreatureGoblin:  {R: 61, G: 139, B: 64, A: 255},
-		sim.CreatureRat:     {R: 161, G: 136, B: 127, A: 255},
-		sim.CreatureCultist: {R: 142, G: 107, B: 191, A: 255},
-	}
-
-	itemColor = map[sim.ItemKind]color.RGBA{
-		sim.ItemFood:   {R: 224, G: 164, B: 88, A: 255},
-		sim.ItemWeapon: {R: 126, G: 200, B: 227, A: 255},
-		sim.ItemCorpse: {R: 138, G: 47, B: 54, A: 255},
-	}
 
 	// Палитра сайдбара: тихие тона — карта рассказывает историю,
 	// панель не должна её перебивать.
@@ -59,6 +45,21 @@ var (
 	colDimTx = color.RGBA{R: 120, G: 118, B: 128, A: 255}
 )
 
+//go:embed assets/tiles.png
+var tileAtlasPNG []byte
+
+const (
+	tileFloor = iota
+	tileWall
+	tileGoblin
+	tileRat
+	tileCultist
+	tileFood
+	tileWeapon
+	tileCorpse
+	tileTarget
+)
+
 // Sidebar — содержимое правой панели: состояние тела, последние события
 // и сообщение об ошибке. Рендер не строит этот текст сам — ему приносят.
 type Sidebar struct {
@@ -67,8 +68,17 @@ type Sidebar struct {
 	HP     int
 	MaxHP  int
 	Hunger int
+	Legacy int
+	Claims []string
+	Mode   string
 	Events []string // свежие сверху
 	Error  string
+}
+
+type Overlay struct {
+	Title string
+	Lines []string
+	Hint  string
 }
 
 // Renderer рисует состояние мира из снапшотов.
@@ -87,8 +97,11 @@ type Renderer struct {
 	snap     sim.Snapshot
 	explored []bool
 	visible  map[sim.Vec2]bool
+	targets  []sim.TargetMarker
 	face     font.Face
+	atlas    *ebiten.Image
 	sidebar  *Sidebar
+	overlay  *Overlay
 }
 
 // New создаёт рендер для мира: фиксирует терраин, геометрию и шрифт.
@@ -106,6 +119,10 @@ func New(w *sim.World) (*Renderer, error) {
 	if err != nil {
 		return nil, fmt.Errorf("отрисовка шрифта: %w", err)
 	}
+	atlasSource, err := png.Decode(bytes.NewReader(tileAtlasPNG))
+	if err != nil {
+		return nil, fmt.Errorf("атлас тайлов: %w", err)
+	}
 	width, height := w.Width(), w.Height()
 	return &Renderer{
 		terrain:  w.Terrain(),
@@ -114,6 +131,7 @@ func New(w *sim.World) (*Renderer, error) {
 		explored: make([]bool, width*height),
 		visible:  map[sim.Vec2]bool{},
 		face:     face,
+		atlas:    ebiten.NewImageFromImage(atlasSource),
 	}, nil
 }
 
@@ -127,14 +145,20 @@ func (r *Renderer) SetVisible(cells []sim.Vec2) {
 	clear(r.visible)
 	for _, c := range cells {
 		r.visible[c] = true
-		if c.X >= 0 && c.Y >= 0 && c.X < r.width && c.Y < r.height {
-			r.explored[c.Y*r.width+c.X] = true
-		}
 	}
+}
+
+func (r *Renderer) SetKnowledge(k sim.PlayerKnowledgeSnapshot) {
+	if len(k.Explored) == len(r.explored) {
+		copy(r.explored, k.Explored)
+	}
+	r.targets = append(r.targets[:0], k.Targets...)
 }
 
 // SetSidebar обновляет содержимое правой панели.
 func (r *Renderer) SetSidebar(sb Sidebar) { r.sidebar = &sb }
+
+func (r *Renderer) SetOverlay(overlay *Overlay) { r.overlay = overlay }
 
 // Draw отрисовывает кадр: сайдбар, терраин в тумане, предметы на полу,
 // существ. Порядок слоёв важен: предмет и существо могут делить клетку,
@@ -154,33 +178,39 @@ func (r *Renderer) Draw(screen *ebiten.Image) {
 				r.drawTile(screen, x, y, colUnseen)
 				continue
 			case !r.visible[pos]:
-				r.drawTile(screen, x, y, colFloor)
+				r.drawSprite(screen, x, y, tileFloor)
 				r.drawTile(screen, x, y, colDim)
 				continue
 			}
-			col := colFloor
+			tile := tileFloor
 			if r.terrain[y*r.width+x] == sim.CellWall {
-				col = colWall
+				tile = tileWall
 			}
-			r.drawTile(screen, x, y, col)
+			r.drawSprite(screen, x, y, tile)
 		}
 	}
 	for _, it := range r.snap.Items {
 		if it.Holder != 0 || it.Consumed || !r.visible[it.Pos] {
 			continue // в инвентаре, съеден или в тумане — на карте не рисуется
 		}
-		r.drawTile(screen, it.Pos.X, it.Pos.Y, itemColor[it.Kind])
+		r.drawSprite(screen, it.Pos.X, it.Pos.Y, itemTile(it.Kind))
 	}
 	for _, c := range r.snap.Creatures {
 		if !c.Alive || !r.visible[c.Pos] {
 			continue // мёртвые — трупы-предметы; живые вне FOV невидимы
 		}
-		r.drawTile(screen, c.Pos.X, c.Pos.Y, kindColor[c.Kind])
+		r.drawSprite(screen, c.Pos.X, c.Pos.Y, creatureTile(c.Kind))
 		if c.ID == r.snap.Player {
 			// Тело игрока выделяется рамкой: кто «я» сейчас — вопрос
 			// жизни и смерти в игре про переселение.
 			r.drawHighlight(screen, c.Pos.X, c.Pos.Y)
 		}
+	}
+	for _, marker := range r.targets {
+		r.drawTarget(screen, marker.Pos.X, marker.Pos.Y)
+	}
+	if r.overlay != nil {
+		r.drawOverlay(screen, *r.overlay)
 	}
 }
 
@@ -205,6 +235,16 @@ func (r *Renderer) drawSidebar(screen *ebiten.Image) {
 		hungerCol = colErr
 	}
 	r.text(screen, x, y, fmt.Sprintf("Голод: %d/%d", r.sidebar.Hunger, sim.HungerGrace), hungerCol)
+	y += 20
+	r.text(screen, x, y, fmt.Sprintf("Наследие: %d/%d", r.sidebar.Legacy, sim.LegacyGoal), colTitle)
+	for _, claim := range r.sidebar.Claims {
+		y += 18
+		r.text(screen, x, y, claim, colErr)
+	}
+	if r.sidebar.Mode != "" {
+		y += 20
+		r.text(screen, x, y, r.sidebar.Mode, colTitle)
+	}
 	y += 28
 	r.text(screen, x, y, "— события —", colDimTx)
 	y += 22
@@ -216,7 +256,60 @@ func (r *Renderer) drawSidebar(screen *ebiten.Image) {
 		y += 6
 		text.Draw(screen, r.sidebar.Error, r.face, x, y, colErr)
 	}
-	r.text(screen, x, windowH-20, "стрелки/vi — шаг · . — ждать", colDimTx)
+	r.text(screen, x, windowH-38, "F — удар · G — поднять", colDimTx)
+	r.text(screen, x, windowH-20, "I — инвентарь · . — ждать", colDimTx)
+}
+
+func (r *Renderer) drawOverlay(screen *ebiten.Image, overlay Overlay) {
+	rect := image.Rect(160, 110, mapAreaW-160, windowH-110)
+	panel := screen.SubImage(rect).(*ebiten.Image)
+	panel.Fill(color.RGBA{R: 10, G: 9, B: 14, A: 245})
+	x, y := 190, 150
+	r.text(screen, x, y, overlay.Title, colTitle)
+	y += 36
+	for _, line := range overlay.Lines {
+		r.text(screen, x, y, line, colText)
+		y += 22
+	}
+	if overlay.Hint != "" {
+		r.text(screen, x, windowH-145, overlay.Hint, colDimTx)
+	}
+}
+
+func (r *Renderer) drawTarget(screen *ebiten.Image, x, y int) {
+	r.drawSprite(screen, x, y, tileTarget)
+}
+
+func (r *Renderer) drawSprite(screen *ebiten.Image, x, y, tile int) {
+	sx, sy := (tile%3)*16, (tile/3)*16
+	source := r.atlas.SubImage(image.Rect(sx, sy, sx+16, sy+16)).(*ebiten.Image)
+	op := &ebiten.DrawImageOptions{}
+	op.GeoM.Scale(2, 2)
+	op.GeoM.Translate(float64(x*tilePix), float64(y*tilePix))
+	op.Filter = ebiten.FilterNearest
+	screen.DrawImage(source, op)
+}
+
+func creatureTile(kind sim.CreatureKind) int {
+	switch kind {
+	case sim.CreatureGoblin:
+		return tileGoblin
+	case sim.CreatureRat:
+		return tileRat
+	default:
+		return tileCultist
+	}
+}
+
+func itemTile(kind sim.ItemKind) int {
+	switch kind {
+	case sim.ItemFood:
+		return tileFood
+	case sim.ItemWeapon:
+		return tileWeapon
+	default:
+		return tileCorpse
+	}
 }
 
 // text рисует однострочную надпись.
